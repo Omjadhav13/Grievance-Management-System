@@ -1,28 +1,13 @@
 package com.grievance_management.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public class EmployeeLoginRequest {
-
-    @NotBlank
-    private String empnum;
-
-    @NotBlank
+    private String empEmail;
     private String password;
 
-    public String getEmpnum() {
-        return empnum;
-    }
+    public String getEmpEmail() { return empEmail; }
+    public void setEmpEmail(String empEmail) { this.empEmail = empEmail; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setEmpnum(String empnum) {
-        this.empnum = empnum;
-    }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
 }

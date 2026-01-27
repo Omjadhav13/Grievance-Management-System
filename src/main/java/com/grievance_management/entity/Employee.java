@@ -11,7 +11,7 @@ public class Employee {
     @Column(name = "empId")
     private Integer empId;
 
-    @Column(name = "empnum", nullable = false, unique = true)
+    @Column(name = "empnum", length = 4, nullable = false)
     private String empnum;
 
     @Column(name = "empname", nullable = false)

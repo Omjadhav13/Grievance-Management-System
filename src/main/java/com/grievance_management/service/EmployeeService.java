@@ -1,86 +1,122 @@
 package com.grievance_management.service;
 
-import com.grievance_management.dto.EmployeeLoginRequest;
-import com.grievance_management.dto.EmployeeLoginResponse;
-import com.grievance_management.dto.EmployeeRegisterRequest;
+import com.grievance_management.dto.*;
 import com.grievance_management.entity.Employee;
 import com.grievance_management.repository.EmployeeRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
+import com.grievance_management.security.JwtService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EmployeeService {
 
-    private final EmployeeRepository repository;
+    private final EmployeeRepository employeeRepository;
+    private final JwtService jwtService;
+    private static final Logger log =
+            LoggerFactory.getLogger(EmployeeService.class);
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    public EmployeeService(EmployeeRepository repository) {
-        this.repository = repository;
+    public EmployeeService(EmployeeRepository employeeRepository,
+                           JwtService jwtService) {
+        this.employeeRepository = employeeRepository;
+        this.jwtService = jwtService;
     }
 
     // ================= REGISTER =================
-    @Transactional
+
     public Employee registerEmployee(EmployeeRegisterRequest request) {
 
-        System.out.println("STEP 1: Registration started");
+        Employee employee = new Employee();
+        employee.setEmpnum(request.getEmpnum());
+        employee.setEmpname(request.getEmpname());
+        employee.setEmpEmail(request.getEmpEmail());
+        employee.setPassword(request.getPassword());
+        employee.setDepartment(request.getDepartment());
+        employee.setRole(request.getRole());
+        employee.setContactNum(request.getContactNum());
+        employee.setAddress(request.getAddress());
 
-        // Required for DB triggers
-        entityManager.createNativeQuery("SET @actor_id = 'E001'").executeUpdate();
-        entityManager.createNativeQuery("SET @actor_role = 'EMPLOYEE'").executeUpdate();
-        System.out.println("STEP 2: MySQL session variables set");
-
-        Employee emp = new Employee();
-
-        emp.setEmpnum(request.getEmpnum());
-        emp.setEmpname(request.getEmpname());
-        emp.setEmpEmail(request.getEmpEmail());
-        emp.setDepartment(request.getDepartment());
-        emp.setRole(request.getRole());
-        emp.setAddress(request.getAddress());
-        emp.setContactNum(request.getContactNum());
-        emp.setPassword(request.getPassword());
-
-        System.out.println("STEP 3: Entity populated");
-
-        Employee saved = repository.save(emp);
-
-        System.out.println("STEP 4: Employee saved with empnum = " + saved.getEmpnum());
-
-        return saved;
+        return employeeRepository.save(employee);
     }
 
     // ================= LOGIN =================
+
     public EmployeeLoginResponse login(EmployeeLoginRequest request) {
 
-        System.out.println("LOGIN: Step 1 → Login started");
-        System.out.println("LOGIN: empnum = " + request.getEmpnum());
-
-        Employee employee = repository.findByEmpnum(request.getEmpnum())
-                .orElseThrow(() -> {
-                    System.out.println("LOGIN ERROR: empnum not found");
-                    return new RuntimeException("Invalid empnum or password");
-                });
-
-        System.out.println("LOGIN: Step 2 → Employee found");
+        Employee employee = employeeRepository
+                .findByEmpEmail(request.getEmpEmail()) // ✅ correct getter
+                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
         if (!employee.getPassword().equals(request.getPassword())) {
-            System.out.println("LOGIN ERROR: Password mismatch");
-            throw new RuntimeException("Invalid empnum or password");
+            throw new RuntimeException("Invalid email or password");
         }
 
-        System.out.println("LOGIN: Step 3 → Password matched");
-        System.out.println("LOGIN SUCCESS");
+        // 🔴 THIS IS THE ONLY REQUIRED CHANGE
+        String token = jwtService.generateToken(
+                employee.getEmpnum(),   // String
+                employee.getRole()      // String
+        );
 
+        // ✅ BUILD YOUR EXISTING DTO
         return new EmployeeLoginResponse(
-                employee.getEmpId(),
+                employee.getEmpId(),        // Integer
+                employee.getEmpEmail(),     // String
+                employee.getRole(),         // String
+                token                       // String
+        );
+    }
+
+    /* ===================== VIEW PROFILE ===================== */
+
+    public EmployeeProfileResponse getMyProfile(String empNum) {
+
+        System.out.println("📌 SERVICE | Fetch employee profile");
+        System.out.println("➡ empNum = " + empNum);
+
+        Employee employee = employeeRepository.findByEmpnum(empNum)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        System.out.println("✅ SERVICE | Profile found for " + empNum);
+
+        return new EmployeeProfileResponse(
                 employee.getEmpnum(),
                 employee.getEmpname(),
-                employee.getRole(),
-                "Login successful"
+                employee.getEmpEmail(),
+                employee.getDepartment(),
+                employee.getContactNum(),
+                employee.getAddress(),
+                employee.getRole()
         );
+    }
+
+    /* ===================== UPdate PROFILE ===================== */
+
+    @Transactional
+    public Employee updateMyProfile(
+            String empnum,
+            String role,
+            EmployeeUpdateRequest request) {
+
+        log.info("🔄 SERVICE | Updating profile | empnum={} | role={}", empnum, role);
+
+        employeeRepository.updateEmployee(
+                empnum,
+                request.getEmpname(),
+                request.getEmpEmail(),
+                request.getDepartment(),
+                role,                 // role unchanged
+                request.getAddress(),
+                request.getContactNum(),
+                empnum,               // actor_id = self
+                role                  // actor_role
+        );
+
+        Employee updated = employeeRepository.findByEmpnum(empnum)
+                .orElseThrow(() -> new RuntimeException("Employee not found after update"));
+
+        log.info("✅ SERVICE | Profile updated successfully | empnum={}", empnum);
+
+        return updated;
     }
 }

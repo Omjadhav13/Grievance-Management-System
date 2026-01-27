@@ -3,36 +3,35 @@ package com.grievance_management.dto;
 public class EmployeeLoginResponse {
 
     private Integer empId;
-    private String empnum;
-    private String empname;
+    private String empEmail;
     private String role;
-    private String message;
+    private String token;
 
-    public EmployeeLoginResponse(Integer empId, String empnum, String empname, String role, String message) {
+    public EmployeeLoginResponse(
+            Integer empId,
+            String empEmail,
+            String role,
+            String token) {
+
         this.empId = empId;
-        this.empnum = empnum;
-        this.empname = empname;
+        this.empEmail = empEmail;
         this.role = role;
-        this.message = message;
+        this.token = token;
     }
 
     public Integer getEmpId() {
         return empId;
     }
 
-    public String getEmpnum() {
-        return empnum;
-    }
-
-    public String getEmpname() {
-        return empname;
+    public String getEmpEmail() {
+        return empEmail;
     }
 
     public String getRole() {
         return role;
     }
 
-    public String getMessage() {
-        return message;
+    public String getToken() {
+        return token;
     }
 }
