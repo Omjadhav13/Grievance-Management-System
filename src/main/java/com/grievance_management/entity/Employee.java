@@ -32,8 +32,9 @@ public class Employee {
     @Column(name = "contact_num", nullable = false, unique = true)
     private String contactNum;
 
-    @Column(name = "password", nullable = false)
+    @Column(name = "emp_password", nullable = false)
     private String password;
+
 
     /* ===== getters & setters ===== */
 

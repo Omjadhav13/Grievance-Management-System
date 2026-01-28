@@ -2,6 +2,7 @@ package com.grievance_management.controller;
 
 import com.grievance_management.dto.*;
 import com.grievance_management.entity.Employee;
+import com.grievance_management.entity.EmployeeSingleGrievanceView;
 import com.grievance_management.repository.EmployeeRepository;
 import com.grievance_management.security.JwtService;
 import com.grievance_management.service.EmployeeService;
@@ -40,6 +41,7 @@ public class EmployeeController {
     @PostMapping("/login")
     public ResponseEntity<EmployeeLoginResponse> login(
             @RequestBody EmployeeLoginRequest request) {
+        System.out.println("EMAIL RECEIVED = " + request.getEmpEmail());
         return ResponseEntity.ok(employeeService.login(request));
     }
 
@@ -85,4 +87,20 @@ public class EmployeeController {
 //
 //        return ResponseEntity.ok(updated);
 //    }
+
+    // get grievance using number
+    @GetMapping("/api/grievances/{grievanceNum}")
+    public ResponseEntity<EmployeeSingleGrievanceView> getMyGrievanceByNumber(
+            @PathVariable String grievanceNum,
+            Authentication authentication
+    ) {
+        String empNum = authentication.getName();
+
+        EmployeeSingleGrievanceView grievance =
+                employeeService.getMyGrievanceByNumber(grievanceNum, empNum);
+
+        return ResponseEntity.ok(grievance);
+    }
+
+
 }

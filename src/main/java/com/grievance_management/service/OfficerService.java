@@ -69,7 +69,8 @@ public class OfficerService {
         officer.setCtgnum(request.getCtgnum());
         officer.setAddress(request.getAddress());
         officer.setPassword(passwordEncoder.encode(request.getPassword()));
-        officer.setAuthKey(authKey);
+
+        officer.setAuthKey(passwordEncoder.encode(authKey));
 
         officerRepository.save(officer);
 
@@ -78,19 +79,37 @@ public class OfficerService {
     public OfficerLoginResponse login(OfficerLoginRequest request) {
 
         Officer officer = officerRepository
-                .findByOfficerEmailAndAuthKey(
-                        request.getOfficerEmail(),
-                        request.getAuthKey()
-                )
+                .findByOfficerEmail(request.getOfficerEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
+        // 🔐 password check
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                officer.getPassword()
+        )) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        // 🔐 auth key check
+        if (!passwordEncoder.matches(
+                request.getAuthKey(),
+                officer.getAuthKey()
+        )) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        // ✅ JWT
         String token = jwtService.generateToken(
                 officer.getOfficernum(),
                 "OFFICER"
         );
 
-        return new OfficerLoginResponse(token,officer.getOfficerEmail());
+        return new OfficerLoginResponse(
+                token,
+                officer.getOfficerEmail()
+        );
     }
+
 
     public OfficerProfileResponse getMyProfile(String officerEmail) {
 

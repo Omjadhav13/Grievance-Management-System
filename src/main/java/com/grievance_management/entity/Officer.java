@@ -19,7 +19,9 @@ public class Officer {
 
     private String ctgnum;
     private String address;
+    @Column(name = "officer_password")
     private String password;
+
 
     @Column(name = "auth_key")
     private String authKey;

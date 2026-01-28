@@ -2,10 +2,16 @@ package com.grievance_management.service;
 
 import com.grievance_management.dto.*;
 import com.grievance_management.entity.Employee;
+import com.grievance_management.entity.EmployeeSingleGrievanceView;
 import com.grievance_management.repository.EmployeeRepository;
+import com.grievance_management.repository.EmployeeSingleGrievanceViewRepository;
 import com.grievance_management.security.JwtService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,28 +20,42 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+    private final EmployeeSingleGrievanceViewRepository singleViewRepo;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeService.class);
 
     public EmployeeService(EmployeeRepository employeeRepository,
-                           JwtService jwtService) {
+                           JwtService jwtService,
+                           PasswordEncoder passwordEncoder,
+                           EmployeeSingleGrievanceViewRepository singleViewRepo) {
         this.employeeRepository = employeeRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+        this.singleViewRepo = singleViewRepo;
     }
 
     // ================= REGISTER =================
 
+    @Transactional
     public Employee registerEmployee(EmployeeRegisterRequest request) {
+
+        entityManager.createNativeQuery("SET @actor_id = 'SYSTEM'").executeUpdate();
+        entityManager.createNativeQuery("SET @actor_role = 'SYSTEM'").executeUpdate();
 
         Employee employee = new Employee();
         employee.setEmpnum(request.getEmpnum());
         employee.setEmpname(request.getEmpname());
         employee.setEmpEmail(request.getEmpEmail());
-        employee.setPassword(request.getPassword());
         employee.setDepartment(request.getDepartment());
         employee.setRole(request.getRole());
         employee.setContactNum(request.getContactNum());
         employee.setAddress(request.getAddress());
+        employee.setPassword(passwordEncoder.encode(request.getPassword()));
 
         return employeeRepository.save(employee);
     }
@@ -45,39 +65,35 @@ public class EmployeeService {
     public EmployeeLoginResponse login(EmployeeLoginRequest request) {
 
         Employee employee = employeeRepository
-                .findByEmpEmail(request.getEmpEmail()) // ✅ correct getter
+                .findByEmpEmail(request.getEmpEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        if (!employee.getPassword().equals(request.getPassword())) {
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                employee.getPassword()
+        )) {
             throw new RuntimeException("Invalid email or password");
         }
 
-        // 🔴 THIS IS THE ONLY REQUIRED CHANGE
         String token = jwtService.generateToken(
-                employee.getEmpnum(),   // String
-                employee.getRole()      // String
+                employee.getEmpnum(),
+                employee.getRole()
         );
 
-        // ✅ BUILD YOUR EXISTING DTO
         return new EmployeeLoginResponse(
-                employee.getEmpId(),        // Integer
-                employee.getEmpEmail(),     // String
-                employee.getRole(),         // String
-                token                       // String
+                employee.getEmpId(),
+                employee.getEmpEmail(),
+                employee.getRole(),
+                token
         );
     }
 
-    /* ===================== VIEW PROFILE ===================== */
+    // ================= VIEW PROFILE =================
 
     public EmployeeProfileResponse getMyProfile(String empNum) {
 
-        System.out.println("📌 SERVICE | Fetch employee profile");
-        System.out.println("➡ empNum = " + empNum);
-
         Employee employee = employeeRepository.findByEmpnum(empNum)
                 .orElseThrow(() -> new RuntimeException("Employee not found"));
-
-        System.out.println("✅ SERVICE | Profile found for " + empNum);
 
         return new EmployeeProfileResponse(
                 employee.getEmpnum(),
@@ -90,7 +106,7 @@ public class EmployeeService {
         );
     }
 
-    /* ===================== UPdate PROFILE ===================== */
+    // ================= UPDATE PROFILE =================
 
     @Transactional
     public Employee updateMyProfile(
@@ -98,25 +114,32 @@ public class EmployeeService {
             String role,
             EmployeeUpdateRequest request) {
 
-        log.info("🔄 SERVICE | Updating profile | empnum={} | role={}", empnum, role);
-
         employeeRepository.updateEmployee(
                 empnum,
                 request.getEmpname(),
                 request.getEmpEmail(),
                 request.getDepartment(),
-                role,                 // role unchanged
+                role,
                 request.getAddress(),
                 request.getContactNum(),
-                empnum,               // actor_id = self
-                role                  // actor_role
+                empnum,
+                role
         );
 
-        Employee updated = employeeRepository.findByEmpnum(empnum)
+        return employeeRepository.findByEmpnum(empnum)
                 .orElseThrow(() -> new RuntimeException("Employee not found after update"));
+    }
 
-        log.info("✅ SERVICE | Profile updated successfully | empnum={}", empnum);
+    // ================= SINGLE GRIEVANCE (EMPLOYEE) =================
 
-        return updated;
+    public EmployeeSingleGrievanceView getMyGrievanceByNumber(
+            String grievanceNum,
+            String empNum
+    ) {
+        return singleViewRepo
+                .findByGrievanceNumAndEmpNum(grievanceNum, empNum)
+                .orElseThrow(() ->
+                        new RuntimeException("Grievance not found for this employee")
+                );
     }
 }
