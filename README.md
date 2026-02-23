@@ -1,4 +1,4 @@
-# Grievance Management System - Frontend
+# Grievance Management System
 
 Complete React + Vite frontend for the Grievance Management System backend.
 
